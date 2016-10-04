@@ -8,15 +8,16 @@ EPSILON = 1
 EPSILON_DECAY = .9
 MIN_EPSILON =  .1
 MAX_STEPS = 400
-MAX_MEMORY = 10000
-BATCH_SIZE = 150
+MAX_MEMORY = 100000
+BATCH_SIZE = 500
 GAMMA = .99
-MAX_EPISODES = 1000
-UPDATE = 100
+MAX_EPISODES = 1500
+UPDATE = 150
 
 
 class NueralNetwork():
 	def __init__(self, environment_shape, environment_output):
+		tf.reset_default_graph()
 		self.sess = tf.Session()
 		self.memory = []
 		self.shape = environment_shape
@@ -32,18 +33,18 @@ class NueralNetwork():
 		self.trainInit()
 	
 	def create_weights(self):
-		self.w1 = tf.Variable(tf.random_normal([self.shape, 200]))
-		self.b1 = tf.Variable(tf.zeros([200]))
-		self.w2 = tf.Variable(tf.random_normal([200, 200]))
-		self.b2 = tf.Variable(tf.zeros([200]))
-		self.w3 = tf.Variable(tf.random_normal([200, self.outputSize]))
-		self.b3 = tf.Variable(tf.zeros([self.outputSize]))
-		self.w1_= tf.Variable(self.w1.initialized_value())
-		self.b1_= tf.Variable(self.b1.initialized_value())
-		self.w2_= tf.Variable(self.w2.initialized_value())
-		self.b2_= tf.Variable(self.b2.initialized_value())
-		self.w3_= tf.Variable(self.w3.initialized_value())
-		self.b3_= tf.Variable(self.b3.initialized_value())
+		self.w1 = tf.Variable(tf.random_uniform([self.shape, 200], -.1, .1))
+		self.b1 = tf.Variable(tf.random_uniform([200], -.1, .1))
+		self.w2 = tf.Variable(tf.random_uniform([200, 200], -.1, .1))
+		self.b2 = tf.Variable(tf.random_uniform([200], -.1, .1))
+		self.w3 = tf.Variable(tf.random_uniform([200, self.outputSize], -.1, .1))
+		self.b3 = tf.Variable(tf.random_uniform([self.outputSize], -.1, .1))
+		self.w1_= tf.Variable(tf.random_uniform([self.shape, 200], -1, 1))
+		self.b1_= tf.Variable(tf.random_uniform([200], -1, 1))
+		self.w2_= tf.Variable(tf.random_uniform([200, 200], -1, 1))
+		self.b2_= tf.Variable(tf.random_uniform([200], -1, 1))
+		self.w3_= tf.Variable(tf.random_uniform([200, self.outputSize], -.01, .01))
+		self.b3_= tf.Variable(tf.random_uniform([self.outputSize], -.01, .01))
 		
 	def create_updates(self):
 		self.update_w1_ = self.w1_.assign(self.w1)
@@ -76,7 +77,7 @@ class NueralNetwork():
 		#self.rewardTraining = tf.train.AdamOptimizer(0.0001).minimize(self.rewardLoss)
 		
 	def makeDecision(self, state):
-		decision = self.sess.run(self.actions, feed_dict={self.inputStates :np.array([state])})
+		decision = self.sess.run(self.Q, feed_dict={self.inputStates :np.array([state])})
 		decision = np.argmax(action)
 		return decision
 		
@@ -87,12 +88,12 @@ class NueralNetwork():
 		self.sess.close()
 	
 	def update(self):
-		self.sess.run(update_w1_)
-		self.sess.run(update_b1_)
-		self.sess.run(update_w2_)
-		self.sess.run(update_b2_)
-		self.sess.run(update_w3_)
-		self.sess.run(update_b3_)
+		self.sess.run(self.update_w1_)
+		self.sess.run(self.update_b1_)
+		self.sess.run(self.update_w2_)
+		self.sess.run(self.update_b2_)
+		self.sess.run(self.update_w3_)
+		self.sess.run(self.update_b3_)
 		
 	def train(self, memState, memState_, action, rewards, done):
 		all_q_prime = self.sess.run(self.Q_, feed_dict = {self.nextStates : memState_})
@@ -133,18 +134,22 @@ class Learner():
 		self.nueral = NueralNetwork(environment.shape[0], actions.n)
 		self.memState = np.zeros((MAX_MEMORY, environment.shape[0]))
 		self.memState_ = np.zeros((MAX_MEMORY, environment.shape[0]))
-		self.actions = np.zeros((MAX_MEMORY, actions.n))
+		self.actions = np.zeros((MAX_MEMORY))
 		self.rewards = np.zeros((MAX_MEMORY))
 		self.done = np.zeros((MAX_MEMORY))
 		self.epsilon = 1
-		self.epsilon_decay = .99
+		self.epsilon_decay = .99995
 		self.epsilon_min = .1
+		self.random = 0
+		self.decision = 0
 	
 	def makeAction(self, state):
 		if self.epsilon > random.random():
 			action = self.totalActions.sample()
+			self.random += 1
 		else:
 			action = self.nueral.makeDecision(state)
+			self.decision += 1
 		
 		self.epsilon = self.epsilon * self.epsilon_decay
 		if self.epsilon < self.epsilon_min:
@@ -156,8 +161,7 @@ class Learner():
 		self.memState[memNum] = np.array(state)
 		self.memState_[memNum] = np.array(next)
 		self.rewards[memNum] = reward
-		self.actions[memNum] = np.zeros(self.totalActions.n)
-		self.actions[memNum][action] = 1.0
+		self.actions[memNum] = action
 		self.done[memNum] = done
 	
 	def train(self, totalMem):
@@ -172,13 +176,14 @@ class Learner():
 	#	i = np.random.choice(size, batch, replace=True)
 	#	self.nueral.train(self.memState[i], self.memState_[i], self.actions[i], self.rewards[i])
 		
-		
+	def percentRand(self):
+		print("Total Random - {} Total Decided = {}".format(self.random/(self.random + self.decision), self.decision/(self.decision + self.random)))
 	
 	def update(self):
 		self.nueral.update()
 	
 	def end(self):
-		self.nueral.close()
+		self.nueral.end()
 		
 	def run(self):
 		self.nueral.run()
@@ -189,11 +194,12 @@ if __name__ == '__main__':
 	learner.run()
 	memNum = 0
 	totalMem = 0
+	trainNum = 0
 	
 	for episode in range(MAX_EPISODES):
 		done = False
 		reward = 0.0
-		trainNum = 0
+		
 		state = env.reset()
 		next_state = state
 		
@@ -217,13 +223,17 @@ if __name__ == '__main__':
 		
 				if trainNum > UPDATE:
 					learner.update()
+					trainNum = 0
 				else:
 					trainNum += 1
 		
 			state = next_state
 		
 			if done:
-				print("Episode - {}, Steps - {}".format(episode, step))
+				if episode % 10 == 0:
+					print("Episode - {}, Steps - {}".format(episode, step))
+				learner.percentRand()
+				
 				break
 		
 		
