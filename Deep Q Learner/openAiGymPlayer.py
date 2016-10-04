@@ -56,20 +56,24 @@ class NueralNetwork():
 	def linkNetwork(self):
 		self.hidden_1 = tf.nn.relu(tf.matmul(self.inputStates, self.w1) + self.b1)
 		self.hidden_2 = tf.nn.relu(tf.matmul(self.hidden_1, self.w2) + self.b2)
-		self.actions = tf.matmul(self.hidden_2, self.w3) + self.b3
-		self.Q = tf.reduce_sum(tf.mul(self.actions, self.outputStates), reduction_indices=1)
+		self.Q = tf.matmul(self.hidden_2, self.w3) + self.b3
+		#self.Q = tf.reduce_sum(tf.mul(self.actions, self.outputStates), reduction_indices=1)
 		
 	def linkQPrime(self):
 		self.hidden_1_ = tf.nn.relu(tf.matmul(self.nextStates, self.w1_) + self.b1_)
 		self.hidden_2_ = tf.nn.relu(tf.matmul(self.hidden_1_, self.w2_) + self.b2_)
-		self.actions_ = tf.matmul(self.hidden_2_, self.w3_) + self.b3_
-		self.Q_ = self.rewards + GAMMA*tf.reduce_max(self.actions_, reduction_indices=1)
+		self.Q_ = tf.matmul(self.hidden_2_, self.w3_) + self.b3_
+		#self.Q_ = tf.matmul(self.actions
 	
 	def trainInit(self):
-		self.loss = tf.reduce_mean(tf.square(self.Q_-self.Q))
-		self.rewardLoss = tf.reduce_mean(tf.square(self.rewards-self.Q))
+		self.actionTakenPlaceholder = tf.placeholder(tf.int32, [None], name="actionMasks")
+		self.actionMasks = tf.one_hot(self.actionTakenPlaceholder, self.outputSize)
+		self.filtered_Q = tf.reduce_sum(tf.mul(self.Q, self.actionMasks), reduction_indices=1)
+		self.target_q_placeholder = tf.placeholder(tf.float32, [None,])
+		self.loss = tf.reduce_mean(tf.square(self.filtered_Q - self.target_q_placeholder))
+		#self.rewardLoss = tf.reduce_mean(tf.square(self.rewards-self.Q))
 		self.training = tf.train.AdamOptimizer(0.0001).minimize(self.loss)
-		self.rewardTraining = tf.train.AdamOptimizer(0.0001).minimize(self.rewardLoss)
+		#self.rewardTraining = tf.train.AdamOptimizer(0.0001).minimize(self.rewardLoss)
 		
 	def makeDecision(self, state):
 		decision = self.sess.run(self.actions, feed_dict={self.inputStates :np.array([state])})
@@ -80,7 +84,7 @@ class NueralNetwork():
 		self.sess.run(tf.initialize_all_variables())
 	
 	def end(self):
-		self.see.close()
+		self.sess.close()
 	
 	def update(self):
 		self.sess.run(update_w1_)
@@ -90,23 +94,37 @@ class NueralNetwork():
 		self.sess.run(update_w3_)
 		self.sess.run(update_b3_)
 		
-	def rewardTrain(self, memState, memState_, action, rewards):
+	def train(self, memState, memState_, action, rewards, done):
+		all_q_prime = self.sess.run(self.Q_, feed_dict = {self.nextStates : memState_})
+		y_ = []
+		state_samples = []
+		actions = []
+		for i in range(len(memState)):
+			if done[i]:
+				y_.append(rewards[i])
+			else:
+				this_q_prime = all_q_prime[i]
+				maxQ = max(this_q_prime)
+				y_.append(rewards[i] + GAMMA*maxQ)
+			
+			state_samples.append(memState[i])
+			actions.append(action[i])
+			
 		feed = {
-				self.inputStates : memState,
-				self.nextStates : memState_,
-				self.rewards : rewards,
-				self.outputStates : action
+				self.inputStates : state_samples,
+				self.target_q_placeholder : y_,
+				self.actionTakenPlaceholder : actions
 				}
-		self.sess.run([self.rewardLoss, self.rewardTraining], feed_dict = feed)
+		self.sess.run([self.training], feed_dict = feed)
 	
-	def train(self, memState, memState_, action, rewards):
-		feed = {
-				self.inputStates : memState,
-				self.nextStates : memState_,
-				self.rewards : rewards,
-				self.outputStates : action
-				}
-		self.sess.run([self.loss, self.training], feed_dict = feed)
+	#def train(self, memState, memState_, action, rewards):
+	#	feed = {
+	#			self.inputStates : memState,
+	#			self.nextStates : memState_,
+	#			self.rewards : rewards,
+	#			self.outputStates : action
+	#			}
+	#	self.sess.run([self.loss, self.training], feed_dict = feed)
 	
 class Learner():
 	def __init__(self, environment, actions):
@@ -117,8 +135,9 @@ class Learner():
 		self.memState_ = np.zeros((MAX_MEMORY, environment.shape[0]))
 		self.actions = np.zeros((MAX_MEMORY, actions.n))
 		self.rewards = np.zeros((MAX_MEMORY))
+		self.done = np.zeros((MAX_MEMORY))
 		self.epsilon = 1
-		self.epsilon_decay = .9
+		self.epsilon_decay = .99
 		self.epsilon_min = .1
 	
 	def makeAction(self, state):
@@ -133,24 +152,27 @@ class Learner():
 		
 		return action
 	
-	def makeMemory(self, memNum, state, next, reward, action):
+	def makeMemory(self, memNum, state, next, reward, action, done):
 		self.memState[memNum] = np.array(state)
 		self.memState_[memNum] = np.array(next)
 		self.rewards[memNum] = reward
 		self.actions[memNum] = np.zeros(self.totalActions.n)
 		self.actions[memNum][action] = 1.0
+		self.done[memNum] = done
 	
-	def rewardTrain(self, totalMem):
-		batch = min(totalMem, BATCH_SIZE)
-		size = min(totalMem, MAX_MEMORY)
-		i = np.random.choice(size, batch, replace=True)
-		self.nueral.rewardTrain(self.memState[i], self.memState_[i], self.actions[i], self.rewards[i])
-		
 	def train(self, totalMem):
 		batch = min(totalMem, BATCH_SIZE)
 		size = min(totalMem, MAX_MEMORY)
 		i = np.random.choice(size, batch, replace=True)
-		self.nueral.train(self.memState[i], self.memState_[i], self.actions[i], self.rewards[i])
+		self.nueral.train(self.memState[i], self.memState_[i], self.actions[i], self.rewards[i], self.done[i])
+		
+	#def train(self, totalMem):
+	#	batch = min(totalMem, BATCH_SIZE)
+	#	size = min(totalMem, MAX_MEMORY)
+	#	i = np.random.choice(size, batch, replace=True)
+	#	self.nueral.train(self.memState[i], self.memState_[i], self.actions[i], self.rewards[i])
+		
+		
 	
 	def update(self):
 		self.nueral.update()
@@ -179,8 +201,8 @@ if __name__ == '__main__':
 			action = learner.makeAction(state)
 			#env.render()
 			next_state, reward, done, _ = env.step(action)
-		
-			learner.makeMemory(memNum, state, next_state, reward, action)
+			
+			learner.makeMemory(memNum, state, next_state, reward, action, done)
 			memNum += 1
 		
 			if memNum + 1 < MAX_MEMORY:
@@ -191,10 +213,7 @@ if __name__ == '__main__':
 				memNum = 0
 		
 			if totalMem > 0:
-				if done:
-					learner.rewardTrain(totalMem)
-				else:
-					learner.train(totalMem)
+				learner.train(totalMem)
 		
 				if trainNum > UPDATE:
 					learner.update()
