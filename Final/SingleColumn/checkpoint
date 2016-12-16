@@ -1,0 +1,2 @@
+model_checkpoint_path: "/home/jalfred/Documents/Deep Q Learning/Deep-Q-Learning/Final/SingleColumn/Weights"
+all_model_checkpoint_paths: "/home/jalfred/Documents/Deep Q Learning/Deep-Q-Learning/Final/SingleColumn/Weights"
