@@ -5,11 +5,13 @@ import tensorflow as tf
 import math
 import random
 import argparse
+import os
+import csv
 
 EPSILON = 1
 EPSILON_DECAY = .9995
 MIN_EPSILON =  .1
-MAX_STEPS = 199
+MAX_STEPS = 200
 MAX_MEMORY = 100000
 BATCH_SIZE = 500
 GAMMA = .99
@@ -18,6 +20,8 @@ UPDATE = 150
 
 
 def main(load='False'):
+	csvfile = open(os.getcwd() + "/SingleColumn/singleColumn.csv", 'w')
+	data_writer = csv.writer(csvfile)
 	sess = tf.Session()
 	env = gym.make('CartPole-v0')
 	env.monitor.start("/tmp/cartpole-experiment", force=True)
@@ -86,7 +90,7 @@ def main(load='False'):
 	#for saving variables.
 	saver = tf.train.Saver([w1, b1, w2, b2, w3, b3, w1_, b1_, w2_, b2_, w3_, b3_])
 	if load is 'True':
-		saver.restore(sess, "/home/jalfred/Documents/Deep Q Learning/Deep-Q-Learning/Final/SingleColumn/Weights")
+		saver.restore(sess, os.getcwd() + "/SingleColumn/Weights")
 	
 	#Creating updates for weights and biases on Q prime
 	update_w1_ = w1_.assign(w1)
@@ -114,7 +118,7 @@ def main(load='False'):
 		training = tf.train.AdamOptimizer(0.0001).minimize(loss)
 	
 	merged = tf.summary.merge_all()
-	train_writer = tf.summary.FileWriter("/home/jalfred/Documents/Deep Q Learning/Deep-Q-Learning/Final/SingleColumn/train", sess.graph)
+	train_writer = tf.summary.FileWriter(os.getcwd() + "/SingleColumn/train", sess.graph)
 	
 	#Creating memory and associated attribute arrays.
 	rewards = np.zeros((MAX_MEMORY))
@@ -135,6 +139,7 @@ def main(load='False'):
 	for episode in range(MAX_EPISODES):
 		done = False
 		reward = 0.0
+		totalReward = 0.0
 		
 		state = env.reset()
 		
@@ -166,6 +171,13 @@ def main(load='False'):
 			actions[memNum] = action
 			didFinish[memNum] = done
 			nextState[memNum] = next_state
+			if done and step != MAX_STEPS - 1:
+			    reward = -500
+			elif action == 0:
+				reward = 1.5
+			elif action == 1:
+				reward = 1.5
+			totalReward += reward;
 			rewards[memNum] = reward
 			
 			if memNum + 1 < MAX_MEMORY:
@@ -219,6 +231,7 @@ def main(load='False'):
 		
 			if done or step == MAX_STEPS - 1:
 				train_writer.add_summary(summary, episode)
+				data_writer.writerow([episode,totalReward,step])
 				if episode % 10 == 0:
 					print("Episode - {}, Steps - {}".format(episode, step))
 				
@@ -226,7 +239,7 @@ def main(load='False'):
 	
 	train_writer.close()
 	env.monitor.close()
-	saver.save(sess, "/home/jalfred/Documents/Deep Q Learning/Deep-Q-Learning/Final/SingleColumn/Weights");
+	saver.save(sess, os.getcwd() + "/SingleColumn/Weights");
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
