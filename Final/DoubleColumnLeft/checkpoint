@@ -1,0 +1,2 @@
+model_checkpoint_path: "/home/jonathan/Documents/DeepQLearning/Deep-Q-Learning/Final/DoubleColumnLeft/Weights"
+all_model_checkpoint_paths: "/home/jonathan/Documents/DeepQLearning/Deep-Q-Learning/Final/DoubleColumnLeft/Weights"

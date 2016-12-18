@@ -94,9 +94,10 @@ def main(load='False'):
 	 "Column1_b2":b2,
 	 "Column1_w3":w3,
 	 "Column1_b3":b3,
-	 "Column1_w1_":w1_,
-	 "Column1_b1_":b1_, 
-	 "Column1_w2_": b2_,
+	 "Column1_w1_": w1_,
+	 "Column1_b1_": b1_,
+	 "Column1_w2_": w2_,  
+	 "Column1_b2_": b2_,
 	 "Column1_w3_": w3_,
 	 "Column1_b3_": b3_})
 	
