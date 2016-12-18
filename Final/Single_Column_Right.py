@@ -46,10 +46,10 @@ def main(load='False'):
 	#Creating weights and biases for Q
 	with tf.name_scope("First-Layer"):
 		with tf.name_scope("Weights"):
-			w1 = tf.Variable(tf.random_uniform([env.observation_space.shape[0], 200], -.1, .1))
+			w1 = tf.Variable(tf.random_uniform([env.observation_space.shape[0], 200], -.1, .1), name="w1")
 			variable_summaries(w1)
 		with tf.name_scope("Bias"):
-			b1 = tf.Variable(tf.random_uniform([200], -.1, .1))
+			b1 = tf.Variable(tf.random_uniform([200], -.1, .1), name="b1")
 			variable_summaries(b1)
 		with tf.name_scope("Weight-plus-Bias"):
 			hidden_1 = tf.nn.relu(tf.matmul(inputStates, w1) + b1)
@@ -57,10 +57,10 @@ def main(load='False'):
 			
 	with tf.name_scope("Second-Layer"):
 		with tf.name_scope("Weights"):
-			w2 = tf.Variable(tf.random_uniform([200, 200], -.1, .1))
+			w2 = tf.Variable(tf.random_uniform([200, 200], -.1, .1), name="w2")
 			variable_summaries(w2)
 		with tf.name_scope("Bias"):
-			b2 = tf.Variable(tf.random_uniform([200], -.1, .1))
+			b2 = tf.Variable(tf.random_uniform([200], -.1, .1), name="b2")
 			variable_summaries(b2)
 		with tf.name_scope("Weight-plus-Bias"):
 			hidden_2 = tf.nn.relu(tf.matmul(hidden_1, w2) + b2)
@@ -68,10 +68,10 @@ def main(load='False'):
 			
 	with tf.name_scope("Third-Layer"):
 		with tf.name_scope("Weights"):
-			w3 = tf.Variable(tf.random_uniform([200, env.action_space.n], -.1, .1))
+			w3 = tf.Variable(tf.random_uniform([200, env.action_space.n], -.1, .1), name="w3")
 			variable_summaries(w3)
 		with tf.name_scope("Bias"):
-			b3 = tf.Variable(tf.random_uniform([env.action_space.n], -.1, .1))
+			b3 = tf.Variable(tf.random_uniform([env.action_space.n], -.1, .1), name="b3")
 			variable_summaries(b2)
 		with tf.name_scope("Weight-plus-Bias"):
 			Q = tf.matmul(hidden_2, w3) + b3
@@ -80,17 +80,25 @@ def main(load='False'):
 
 	
 	#Creating weights and biases for Q prime
-	w1_= tf.Variable(tf.random_uniform([env.observation_space.shape[0], 200], -1, 1))
-	b1_= tf.Variable(tf.random_uniform([200], -1, 1))
-	w2_= tf.Variable(tf.random_uniform([200, 200], -1, 1))
-	b2_= tf.Variable(tf.random_uniform([200], -1, 1))
-	w3_= tf.Variable(tf.random_uniform([200, env.action_space.n], -.01, .01))
-	b3_= tf.Variable(tf.random_uniform([env.action_space.n], -.01, .01))
+	w1_= tf.Variable(tf.random_uniform([env.observation_space.shape[0], 200], -1, 1), name="w1_")
+	b1_= tf.Variable(tf.random_uniform([200], -1, 1), name="b1_")
+	w2_= tf.Variable(tf.random_uniform([200, 200], -1, 1), name="w2_")
+	b2_= tf.Variable(tf.random_uniform([200], -1, 1), name="b2_")
+	w3_= tf.Variable(tf.random_uniform([200, env.action_space.n], -.01, .01), name="w3_")
+	b3_= tf.Variable(tf.random_uniform([env.action_space.n], -.01, .01), name="b3_")
 	
 	#for saving variables.
-	saver = tf.train.Saver([w1, b1, w2, b2, w3, b3, w1_, b1_, w2_, b2_, w3_, b3_])
-	if load is 'True':
-		saver.restore(sess, os.getcwd() + "/SingleColumnRight/Weights")
+	saver = tf.train.Saver({"Column1_w1":w1,
+	 "Column1_b1":b1,
+	 "Column1_w2":w2,
+	 "Column1_b2":b2,
+	 "Column1_w3":w3,
+	 "Column1_b3":b3,
+	 "Column1_w1_":w1_,
+	 "Column1_b1_":b1_, 
+	 "Column1_w2_": b2_,
+	 "Column1_w3_": w3_,
+	 "Column1_b3_": b3_})
 	
 	#Creating updates for weights and biases on Q prime
 	update_w1_ = w1_.assign(w1)
@@ -170,9 +178,7 @@ def main(load='False'):
 			actions[memNum] = action
 			didFinish[memNum] = done
 			nextState[memNum] = next_state
-			if done and step != MAX_STEPS - 1:
-			    reward = -500
-			elif action == 0:
+			if action == 0:
 				reward = 1
 			elif action == 1:
 				reward = 2

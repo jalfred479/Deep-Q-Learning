@@ -88,9 +88,17 @@ def main(load='False'):
 	b3_= tf.Variable(tf.random_uniform([env.action_space.n], -.01, .01))
 	
 	#for saving variables.
-	saver = tf.train.Saver([w1, b1, w2, b2, w3, b3, w1_, b1_, w2_, b2_, w3_, b3_])
-	if load is 'True':
-		saver.restore(sess, os.getcwd() + "/SingleColumnLeft/Weights")
+	saver = tf.train.Saver({"Column2_w1":w1,
+	 "Column2_b1":b1,
+	 "Column2_w2":w2,
+	 "Column2_b2":b2,
+	 "Column2_w3":w3,
+	 "Column2_b3":b3,
+	 "Column2_w1_":w1_,
+	 "Column2_b1_":b1_, 
+	 "Column2_w2_": b2_,
+	 "Column2_w3_": w3_,
+	 "Column2_b3_": b3_})
 	
 	#Creating updates for weights and biases on Q prime
 	update_w1_ = w1_.assign(w1)
@@ -170,9 +178,7 @@ def main(load='False'):
 			actions[memNum] = action
 			didFinish[memNum] = done
 			nextState[memNum] = next_state
-			if done and step != MAX_STEPS - 1:
-			    reward = -500
-			elif action == 0:
+			if action == 0:
 				reward = 2
 			elif action == 1:
 				reward = 1
